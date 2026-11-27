@@ -1,40 +1,60 @@
 
+from __future__ import annotations
+
 import re
 from urllib.parse import urlparse
+
 
 SUPPORTED_HOSTS = {
     "api.luarmor.net",
     "cdn.luarmor.net",
 }
 
+
 LOADER_PATH_RE = re.compile(
     r"^/files/v\d+/(?:loaders|l)/[A-Za-z0-9_.\-/]+\.lua$",
     re.IGNORECASE,
 )
+
 
 CDN_PATH_RE = re.compile(
     r"^/[A-Za-z0-9_.\-/]+\.lua$",
     re.IGNORECASE,
 )
 
+
 URL_RE = re.compile(
     r"https?://[^\s\"'<>]+",
     re.IGNORECASE,
 )
 
+
 TRAILING_CHARS = ".,;:!?)]}"
 
 
-def clean_url(url):
+def clean_url(url: str) -> str:
+    """
+    Remove trailing punctuation from a URL.
+    """
     return url.strip().rstrip(TRAILING_CHARS)
 
 
-def parse_url(url):
+def parse_url(url: str):
+    """
+    Parse and validate a Luarmor URL.
+
+    Only supported Luarmor hosts are accepted.
+    """
     if not url:
         return None
 
     try:
         parsed = urlparse(url)
+
+        # Accessing parsed.port may raise ValueError
+        # when the port is malformed.
+        port = parsed.port
+
     except ValueError:
         return None
 
@@ -52,7 +72,7 @@ def parse_url(url):
     if parsed.username or parsed.password:
         return None
 
-    if parsed.port not in (None, 80, 443):
+    if port not in (None, 80, 443):
         return None
 
     if not parsed.path.lower().endswith(".lua"):
@@ -61,7 +81,10 @@ def parse_url(url):
     return parsed
 
 
-def is_loader_url(url):
+def is_loader_url(url: str) -> bool:
+    """
+    Check whether a URL is a supported Luarmor loader URL.
+    """
     parsed = parse_url(url)
 
     if parsed is None:
@@ -70,10 +93,15 @@ def is_loader_url(url):
     if parsed.hostname.lower() != "api.luarmor.net":
         return False
 
-    return bool(LOADER_PATH_RE.fullmatch(parsed.path))
+    return bool(
+        LOADER_PATH_RE.fullmatch(parsed.path)
+    )
 
 
-def is_cdn_url(url):
+def is_cdn_url(url: str) -> bool:
+    """
+    Check whether a URL is a supported Luarmor CDN URL.
+    """
     parsed = parse_url(url)
 
     if parsed is None:
@@ -82,10 +110,18 @@ def is_cdn_url(url):
     if parsed.hostname.lower() != "cdn.luarmor.net":
         return False
 
-    return bool(CDN_PATH_RE.fullmatch(parsed.path))
+    return bool(
+        CDN_PATH_RE.fullmatch(parsed.path)
+    )
 
 
-def extract_all_lua_urls(loader_code):
+def extract_all_lua_urls(loader_code: str) -> list[str]:
+    """
+    Extract all unique supported Luarmor .lua URLs.
+
+    Loader and CDN URLs are included.
+    The original order is preserved.
+    """
     if not loader_code:
         return []
 
@@ -108,7 +144,10 @@ def extract_all_lua_urls(loader_code):
     return results
 
 
-def extract_loader_urls(loader_code):
+def extract_loader_urls(loader_code: str) -> list[str]:
+    """
+    Extract only supported Luarmor loader URLs.
+    """
     return [
         url
         for url in extract_all_lua_urls(loader_code)
@@ -116,7 +155,10 @@ def extract_loader_urls(loader_code):
     ]
 
 
-def extract_cdn_urls(loader_code):
+def extract_cdn_urls(loader_code: str) -> list[str]:
+    """
+    Extract only supported Luarmor CDN URLs.
+    """
     return [
         url
         for url in extract_all_lua_urls(loader_code)
@@ -124,7 +166,14 @@ def extract_cdn_urls(loader_code):
     ]
 
 
-def extract_script_url(loader_code):
+def extract_script_url(loader_code: str) -> str:
+    """
+    Extract the first supported Luarmor loader URL.
+
+    Raises:
+        ValueError: If loader_code is empty or no supported
+                    loader URL is found.
+    """
     if not loader_code:
         raise ValueError("Loader code is empty.")
 
